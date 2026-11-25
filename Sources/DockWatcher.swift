@@ -3,6 +3,7 @@ import AppKit
 // ponytail: private Dock API (no Automation permission needed, no Dock restart).
 // If a macOS update removes it, fall back to System Events AppleScript `set autohide of dock preferences`.
 @_silgen_name("CoreDockSetAutoHideEnabled") func CoreDockSetAutoHideEnabled(_ on: Bool)
+@_silgen_name("CoreDockGetAutoHideEnabled") func CoreDockGetAutoHideEnabled() -> Bool
 
 enum DockEdge { case bottom, left, right }
 struct DockArea { let rect: CGRect; let edge: DockEdge }  // Cocoa coords
@@ -70,13 +71,18 @@ final class DockWatcher {
     }
 
     private func tick() {
+        // Trust the Dock, not our last request: inside a fullscreen Space the Dock ignores auto-hide
+        // changes, and a remembered "hidden" would leave it stuck visible on the next desktop.
+        let actual = CoreDockGetAutoHideEnabled()
+        if actual != hidden { hidden = actual; onChange?() }
         if !hidden, let d = Self.measureDock() { dock = d }
         guard let dock else { return }
         let windows = Self.visibleWindows()
         // Windows that only end at the Dock keep their size when it hides (only macOS-tiled ones adapt).
         if hidden, AXIsProcessTrusted() { fillDockSpace(windows, dock) }
         let want = windowsOverlapDock(windows.map(\.frame), dock)
-        if want != hidden { setHidden(want) }
+        // Re-sent every tick while the Dock ignores it (fullscreen); that's measured to cost nothing.
+        if want != hidden { CoreDockSetAutoHideEnabled(want) }  // read back as `hidden` next tick
     }
 
     private func setHidden(_ on: Bool) {
