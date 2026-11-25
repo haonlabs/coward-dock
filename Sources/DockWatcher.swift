@@ -48,7 +48,10 @@ final class DockWatcher {
     private(set) var hidden = false
     private var dock: DockArea?  // measured while the Dock is visible
     private var timer: Timer?
-    private var unresizable = Set<CGWindowID>()  // fixed-size or AX-less windows, so they aren't retried every tick
+    // Windows a stretch didn't take, left alone until then so fixed-size ones aren't retried every tick.
+    // Not forever: a busy app (Android Studio opening a project) can time out or re-apply its own bounds
+    // once, and a permanent skip left its long-lived window short of the screen edge for good.
+    private var retryAt: [CGWindowID: Date] = [:]
     private var attempted: [CGWindowID: CGRect] = [:]  // a window's frame when we last tried to stretch it
     var onChange: (() -> Void)?
     var running: Bool { timer != nil }
@@ -96,12 +99,14 @@ final class DockWatcher {
         // Not once per window: some apps (Ghostex, for one) shrink their window back to the visible area
         // whenever the Dock shows, so it has to be stretched again each time.
         let flip = { (r: CGRect) in CGRect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height) }
-        for w in windows where !unresizable.contains(w.id) {
-            guard let target = frameFillingDockSpace(w.frame, dock) else { attempted[w.id] = nil; continue }
+        let now = Date(), later = now.addingTimeInterval(3)
+        for w in windows {
+            guard let target = frameFillingDockSpace(w.frame, dock) else { attempted[w.id] = nil; retryAt[w.id] = nil; continue }
+            if let t = retryAt[w.id], t > now { continue }
             // Judged a tick later, since some apps apply AX resizes asynchronously.
-            if attempted[w.id] == w.frame { unresizable.insert(w.id); continue }  // last try didn't budge it
+            if attempted[w.id] == w.frame { attempted[w.id] = nil; retryAt[w.id] = later; continue }  // didn't budge
             attempted[w.id] = w.frame
-            guard let ax = Self.axWindow(pid: w.pid, frame: flip(w.frame)) else { unresizable.insert(w.id); continue }
+            guard let ax = Self.axWindow(pid: w.pid, frame: flip(w.frame)) else { retryAt[w.id] = later; continue }
             Self.axSetFrame(ax, flip(target))  // AX uses top-left origin, like CG
         }
     }
