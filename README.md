@@ -6,7 +6,7 @@
 
 <p align="center">
   The macOS Dock stays visible, and hides only while a window gets in its way.<br>
-  A tiny menu bar app. No permissions, no Dock restarts, no settings to fiddle with.
+  A tiny menu bar app. No Dock restarts, no settings to fiddle with.
 </p>
 
 <p align="center">
@@ -28,14 +28,17 @@ mode in between:
 | You close, minimize or hide (⌘H) that window | **Visible again** |
 | You switch to a desktop (Space) where nothing overlaps | **Visible** |
 
-A maximized or tiled window hides the Dock and then grows to the bottom of the screen, so you get the
-full height while you work and the Dock back as soon as you're done.
+A maximized window hides the Dock and is then stretched into the space the Dock leaves, so you get the
+full screen height while you work and the Dock back as soon as you're done. (macOS only does that by
+itself for windows it tiled; Coward Dock does it for every window that ends at the Dock, which needs the
+Accessibility permission. See [Permissions](#permissions).)
 
 ## Features
 
 - Lives in the menu bar; the icon shows whether the Dock is currently hidden.
 - **Enabled** toggle (⌘E) to pause it any time.
 - **Launch at Login**, using the native macOS login item API.
+- Stretches windows that end at the Dock into the freed space.
 - Works per desktop (Space), with the Dock on the bottom, left or right.
 - Quitting or pausing always brings the Dock back.
 - Universal binary (Apple Silicon and Intel), macOS 14 Sonoma or later.
@@ -45,6 +48,17 @@ full height while you work and the Dock back as soon as you're done.
 1. Download `CowardDock-<version>.dmg` from [Releases](https://github.com/haonlabs/coward-dock/releases/latest).
 2. Open it and drag **Coward Dock** into **Applications**.
 3. Launch it from Applications. The icon appears in the menu bar.
+
+### Permissions
+
+On first launch, macOS asks to give Coward Dock **Accessibility** access. It's used for one thing only:
+stretching windows into the space the hidden Dock leaves. Allow it in **System Settings → Privacy & Security
+→ Accessibility**. Without it, Coward Dock still shows and hides the Dock; windows just keep their size.
+You can grant it later from the menu: **Allow Window Resizing…**
+
+Release builds are signed ad hoc, and macOS ties the permission to the exact build. **After updating,
+remove Coward Dock from the Accessibility list with −, then grant it again** from the menu. Turning the
+existing switch off and on is not enough: the switch stays on, but it still points at the old build.
 
 ### "Coward Dock can't be opened" / "Apple could not verify…"
 
@@ -68,6 +82,7 @@ Click the menu bar icon:
 | *Status line* | `Dock visible`, `Dock hidden: a window overlaps it`, or `Paused` |
 | **Enabled** ⌘E | Turn the behavior on or off. Turning it off shows the Dock. |
 | **Launch at Login** | Start Coward Dock when you log in. It also appears in System Settings → General → Login Items. |
+| **Allow Window Resizing…** | Shown until Accessibility access is granted. Opens the system prompt. |
 | **About Coward Dock** | Version info |
 | **Quit Coward Dock** ⌘Q | Quit and restore the Dock |
 
@@ -79,13 +94,16 @@ Twice a second, Coward Dock:
 2. Lists the normal app windows on the current desktop (`CGWindowListCopyWindowInfo`). Reading window
    positions doesn't need Screen Recording permission.
 3. If any window overlaps or touches that area, it turns on Dock auto-hide; otherwise it turns it off.
+4. While the Dock is hidden, windows whose edge sits at the Dock's edge are stretched to the screen edge
+   through the Accessibility API. This repeats when needed, because some apps shrink their window back to
+   the visible area whenever the Dock shows. Windows that can't be resized are skipped.
 
 Auto-hide is toggled with `CoreDockSetAutoHideEnabled`, the private function the Dock itself uses. That's
 why no Automation or Accessibility permission is needed and the Dock never restarts. A future macOS
 release could change or remove it. If that happens, the fallback is
 `tell application "System Events" to set autohide of dock preferences to …`, which needs the Automation permission.
 
-The source is three small files:
+The source is a handful of small files:
 
 ```
 Sources/main.swift          menu bar UI, Enabled / Launch at Login, lifecycle
@@ -133,6 +151,10 @@ defaults write com.apple.dock autohide -bool false && killall Dock
 **The Dock hides although no window seems to touch it.** Coward Dock watches the whole screen edge strip
 the Dock reserves, not just the Dock bar, so a window in a bottom corner counts too. Also check for
 off-screen or tiny windows that some apps keep open.
+
+**Windows don't stretch into the Dock's space.** Check that Coward Dock is on in System Settings →
+Privacy & Security → Accessibility, and that **Allow Window Resizing…** is gone from the menu. After an
+update, remove the entry with − and grant it again.
 
 **Launch at Login doesn't stick.** Make sure the app runs from `/Applications`, and allow it under
 System Settings → General → Login Items.

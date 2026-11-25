@@ -24,10 +24,31 @@ let cases: [(String, [CGRect], DockArea, Bool)] = [
     ("right Dock: window away from it", [CGRect(x: 300, y: 200, width: 900, height: 600)], right, false),
 ]
 
+// Which windows get stretched into the hidden Dock's space, and to what frame.
+let fillCases: [(String, CGRect, DockArea, CGRect?)] = [
+    ("maximized window ending at the Dock", CGRect(x: 0, y: 90, width: 1800, height: 1040), bottom,
+     CGRect(x: 0, y: 0, width: 1800, height: 1130)),
+    ("half-width window ending 4pt off the Dock", CGRect(x: 900, y: 81, width: 900, height: 1049), bottom,
+     CGRect(x: 900, y: 0, width: 900, height: 1130)),
+    ("floating window", CGRect(x: 400, y: 300, width: 900, height: 600), bottom, nil),
+    ("window dragged over the Dock", CGRect(x: 300, y: -771, width: 800, height: 1040), bottom, nil),
+    ("window already filling the screen", CGRect(x: 0, y: 0, width: 1800, height: 1130), bottom, nil),
+    ("window on a second screen, same height", CGRect(x: 1800, y: 89, width: 1920, height: 1041), bottom, nil),
+    ("left Dock: window ending at it", CGRect(x: 80, y: 0, width: 900, height: 1130), left,
+     CGRect(x: 0, y: 0, width: 980, height: 1130)),
+    ("right Dock: window ending at it", CGRect(x: 820, y: 0, width: 900, height: 1130), right,
+     CGRect(x: 820, y: 0, width: 980, height: 1130)),
+]
+
 var failed = 0
 for (name, windows, dock, want) in cases where windowsOverlapDock(windows, dock) != want {
-    print("FAIL: \(name) (expected \(want))")
+    print("FAIL overlap: \(name) (expected \(want))")
     failed += 1
 }
-print(failed == 0 ? "selftest: \(cases.count) cases passed" : "selftest: \(failed) failed")
+for (name, window, dock, want) in fillCases where frameFillingDockSpace(window, dock) != want {
+    print("FAIL fill: \(name) (expected \(String(describing: want)), got \(String(describing: frameFillingDockSpace(window, dock))))")
+    failed += 1
+}
+let total = cases.count + fillCases.count
+print(failed == 0 ? "selftest: \(total) cases passed" : "selftest: \(failed) of \(total) failed")
 exit(failed == 0 ? 0 : 1)
