@@ -23,6 +23,11 @@ cp Info.plist "$APP/Contents/"
 swift scripts/make-icon.swift build/AppIcon.iconset
 iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
+# Default to the maintainer's self-signed identity when it's in the keychain: macOS then pins the
+# Accessibility permission to that certificate instead of to each build, so it survives updates.
+# Anyone else gets an ad hoc build.
+SELF_ID="Coward Dock (haonlabs)"
+if [[ -z "${SIGN_ID:-}" ]] && security find-certificate -c "$SELF_ID" >/dev/null 2>&1; then SIGN_ID=$SELF_ID; fi
 codesign --force --options runtime --timestamp=none --sign "${SIGN_ID:--}" "$APP"
 codesign --verify --strict "$APP"
 

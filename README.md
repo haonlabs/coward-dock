@@ -56,9 +56,10 @@ stretching windows into the space the hidden Dock leaves. Allow it in **System S
 → Accessibility**. Without it, Coward Dock still shows and hides the Dock; windows just keep their size.
 You can grant it later from the menu: **Allow Window Resizing…**
 
-Release builds are signed ad hoc, and macOS ties the permission to the exact build. **After updating,
-remove Coward Dock from the Accessibility list with −, then grant it again** from the menu. Turning the
-existing switch off and on is not enough: the switch stays on, but it still points at the old build.
+From 1.1.2 on, release builds are signed with a stable (self-signed) Coward Dock certificate, so the
+permission carries over to future updates. **Updating from 1.1.1 or older:** remove Coward Dock from the
+Accessibility list with −, then grant it again from the menu, one last time. (Turning the old switch off
+and on isn't enough; it keeps pointing at the old build.)
 
 ### "Coward Dock can't be opened" / "Apple could not verify…"
 
@@ -123,12 +124,16 @@ cd coward-dock
 ./build.sh
 ```
 
-This runs the self-check, compiles a universal binary, draws the icon, signs the app ad hoc, and creates:
+This runs the self-check, compiles a universal binary, draws the icon, signs the app, and creates:
 
 - `build/Coward Dock.app`
 - `build/CowardDock-<version>.dmg`
 
 The version comes from `CFBundleShortVersionString` in `Info.plist`.
+
+Your own builds are signed ad hoc, so macOS asks for the Accessibility permission again after each rebuild
+(remove the old entry with −). Release builds use the maintainer's self-signed certificate, which
+`build.sh` picks up automatically when `Coward Dock (haonlabs)` is in the keychain.
 
 ### Signed and notarized builds
 
@@ -153,8 +158,8 @@ the Dock reserves, not just the Dock bar, so a window in a bottom corner counts 
 off-screen or tiny windows that some apps keep open.
 
 **Windows don't stretch into the Dock's space.** Check that Coward Dock is on in System Settings →
-Privacy & Security → Accessibility, and that **Allow Window Resizing…** is gone from the menu. After an
-update, remove the entry with − and grant it again.
+Privacy & Security → Accessibility, and that **Allow Window Resizing…** is gone from the menu. If you
+updated from 1.1.1 or older, or built it yourself, remove the entry with − and grant it again.
 
 **Launch at Login doesn't stick.** Make sure the app runs from `/Applications`, and allow it under
 System Settings → General → Login Items.
